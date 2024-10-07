@@ -29,6 +29,7 @@ const {
   PORT,
   WEBUI_HOST,
   RELEASE,
+  PASSWORD,
   PASSWORD_HASH,
   MAX_AGE,
   LANG,
@@ -335,10 +336,6 @@ module.exports = class Server {
       });
     };
 
-    // Prometheus Metrics API
-    const routerPrometheusMetrics = createRouter();
-    app.use(routerPrometheusMetrics);
-
     // Check Prometheus credentials
     app.use(
       fromNodeMiddleware((req, res, next) => {
@@ -346,11 +343,10 @@ module.exports = class Server {
           return next();
         }
         const user = basicAuth(req);
-        if (requiresPrometheusPassword && !user) {
+        if (!user) {
           res.statusCode = 401;
           return { error: 'Not Logged In' };
         }
-
         if (user.pass) {
           if (isPasswordValid(user.pass, PROMETHEUS_METRICS_PASSWORD)) {
             return next();
@@ -362,6 +358,10 @@ module.exports = class Server {
         return { error: 'Not Logged In' };
       }),
     );
+
+    // Prometheus Metrics API
+    const routerPrometheusMetrics = createRouter();
+    app.use(routerPrometheusMetrics);
 
     // Prometheus Routes
     routerPrometheusMetrics
@@ -427,6 +427,10 @@ module.exports = class Server {
         });
       }),
     );
+
+    if (PASSWORD) {
+      throw new Error('DO NOT USE PASSWORD ENVIRONMENT VARIABLE. USE PASSWORD_HASH INSTEAD.\nSee https://github.com/wg-easy/wg-easy/blob/master/How_to_generate_an_bcrypt_hash.md');
+    }
 
     createServer(toNodeListener(app)).listen(PORT, WEBUI_HOST);
     debug(`Listening on http://${WEBUI_HOST}:${PORT}`);
